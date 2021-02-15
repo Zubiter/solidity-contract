@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Metadata.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/introspection/ERC165.sol";
+import "@openzeppelin/contracts/introspection/IERC165.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
@@ -21,7 +21,7 @@ import "./Ownable.sol";
  * @title ERC721 Non-Fungible Token Standard basic implementation
  * @dev see https://eips.ethereum.org/EIPS/eip-721
  */
-contract ClonableERC721 is Context, ERC165, IERC721, IERC721Metadata, IERC721Enumerable, Ownable {
+contract ClonableERC721 is Context, IERC165, IERC721, IERC721Metadata, IERC721Enumerable, Ownable {
     bool private _inited;
 
     using SafeMath for uint256;
@@ -92,12 +92,17 @@ contract ClonableERC721 is Context, ERC165, IERC721, IERC721Metadata, IERC721Enu
      */
     bytes4 private constant _INTERFACE_ID_ERC721_ENUMERABLE = 0x780e9d63;
 
-    constructor () {
-        // register the supported interfaces to conform to ERC721 via ERC165
-        _registerInterface(_INTERFACE_ID_ERC721);
-        _registerInterface(_INTERFACE_ID_ERC721_METADATA);
-        _registerInterface(_INTERFACE_ID_ERC721_ENUMERABLE);
-    }
+    /*
+     * bytes4(keccak256('supportsInterface(bytes4)')) == 0x01ffc9a7
+     */
+    bytes4 private constant _INTERFACE_ID_ERC165 = 0x01ffc9a7;
+
+    /**
+     * @dev Mapping of interface ids to whether or not it's supported.
+     */
+    mapping(bytes4 => bool) private _supportedInterfaces;
+
+    constructor () {}
 
     /**
      * @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
@@ -107,6 +112,12 @@ contract ClonableERC721 is Context, ERC165, IERC721, IERC721Metadata, IERC721Enu
         _name = name_;
         _symbol = symbol_;
         _inited = true;
+
+        // register the supported interfaces to conform to ERC721 via ERC165
+        _registerInterface(_INTERFACE_ID_ERC721);
+        _registerInterface(_INTERFACE_ID_ERC721_METADATA);
+        _registerInterface(_INTERFACE_ID_ERC721_ENUMERABLE);
+        _registerInterface(_INTERFACE_ID_ERC165);
     }
 
     /**
@@ -479,11 +490,36 @@ contract ClonableERC721 is Context, ERC165, IERC721, IERC721Metadata, IERC721Enu
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual { }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     *
+     * Time complexity O(1), guaranteed to always use less than 30 000 gas.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return _supportedInterfaces[interfaceId];
+    }
+
+    /**
+     * @dev Registers the contract as an implementer of the interface defined by
+     * `interfaceId`. Support of the actual ERC165 interface is automatic and
+     * registering its interface id is not required.
+     *
+     * See {IERC165-supportsInterface}.
+     *
+     * Requirements:
+     *
+     * - `interfaceId` cannot be the ERC165 invalid interface (`0xffffffff`).
+     */
+    function _registerInterface(bytes4 interfaceId) internal virtual {
+        require(interfaceId != 0xffffffff, "ERC165: invalid interface id");
+        _supportedInterfaces[interfaceId] = true;
+    }
 }
 
 contract ZubiterClonableERC721 is ClonableERC721 {
     function initialize(string memory name_, string memory symbol_, address creator) public {
-        require(msg.sender == address());
+        require(msg.sender == address(0x208934f52B250705170Dda55baCD5Bc7Be71d8c2));
         ClonableERC721.initialize(name_, symbol_);
         transferOwnership(creator);
     }
